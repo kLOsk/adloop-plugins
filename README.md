@@ -76,26 +76,10 @@ Every change, including test runs, is recorded in the change log in your dashboa
 | `plugin.json`, `mcp.json` | [Agent Plugins](https://agent-plugins.org) manifest and MCP server, used by ChatGPT and Codex |
 | `skills/adloop/` | The orchestration rules as a skill (Claude, ChatGPT, Codex) |
 | `assets/` | Icon |
-| `scripts/` | Maintainer tools (see below). No client runs them |
 
 ### Keeping the rules in sync
 
-The orchestration rules come from the open-source [AdLoop](https://github.com/kLOsk/adloop) repository (`.cursor/rules/adloop.mdc`). `skills/adloop/`, `rules/adloop.mdc` and `GEMINI.md` are generated from that file and rewritten for AdLoop Cloud. Don't edit them by hand. After the rules change upstream, regenerate them:
-
-```bash
-python3 scripts/sync-from-adloop.py           # rewrite the generated files
-python3 scripts/sync-from-adloop.py --check   # exit 1 if they are out of date
-```
-
-The script reads `../adloop/.cursor/rules/adloop.mdc` when the AdLoop repository is checked out next to this one, and otherwise reads the file from GitHub. Pass `--source <path or URL>` to use another copy. If the upstream wording changes in a way the Cloud rewrite doesn't cover, the script stops with an error and doesn't write anything.
-
-Before a release, check that every manifest parses and that all of them use the same MCP URL and version:
-
-```bash
-python3 scripts/check.py
-```
-
-Both scripts use only the Python standard library.
+The skill, the Cursor rule and `GEMINI.md` are generated from AdLoop's canonical rules file (`.cursor/rules/adloop.mdc` in [kLOsk/adloop](https://github.com/kLOsk/adloop)), rewritten for AdLoop Cloud. The generator and a manifest check live in that repository under `scripts/plugins/`, so this repository ships no code of its own: only manifests, the skill and assets.
 
 ## Links
 
