@@ -1,0 +1,21 @@
+{
+  "name": "adloop",
+  "displayName": "AdLoop Cloud",
+  "version": "1.0.0",
+  "description": "Google Ads, Reddit Ads and Google Analytics in your AI assistant, with a preview and your approval before every change.",
+  "author": {
+    "name": "AdLoop",
+    "email": "hello@getadloop.com"
+  },
+  "homepage": "https://getadloop.com",
+  "repository": "https://github.com/kLOsk/adloop-plugins",
+  "license": "MIT",
+  "keywords": ["google-ads", "ga4", "reddit-ads", "ppc", "marketing", "mcp"],
+  "logo": "assets/adloop-icon.png",
+  "rules": "./rules/",
+  "mcpServers": {
+    "adloop": {
+      "url": "https://mcp.getadloop.com/mcp"
+    }
+  }
+}

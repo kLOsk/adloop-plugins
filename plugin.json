@@ -1,0 +1,38 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "adloop",
+  "version": "1.0.0",
+  "description": "Google Ads, Reddit Ads and Google Analytics in your AI assistant, with a preview and your approval before every change.",
+  "author": {
+    "name": "AdLoop",
+    "email": "hello@getadloop.com",
+    "url": "https://getadloop.com"
+  },
+  "homepage": "https://getadloop.com",
+  "repository": "https://github.com/kLOsk/adloop-plugins",
+  "license": "MIT",
+  "keywords": ["google-ads", "ga4", "reddit-ads", "ppc", "marketing", "mcp"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "AdLoop Cloud",
+        "shortDescription": "Google Ads, Reddit Ads and GA4",
+        "longDescription": "AdLoop Cloud connects Google Ads, Reddit Ads and Google Analytics 4, plus Search Console, Tag Manager and Merchant Center, to your AI assistant. Ask how your campaigns are doing, find wasted spend in search terms, check whether conversions are tracked correctly, research keywords and plan budgets. Every change starts as a preview: nothing is applied until you approve it, Google validates each change in a test run first, budgets and bid raises are capped, and new campaigns are created paused. Sign in with a free AdLoop Cloud account and connect Google and Reddit there.",
+        "developerName": "AdLoop",
+        "category": "Productivity",
+        "capabilities": ["Read", "Write"],
+        "websiteURL": "https://getadloop.com",
+        "privacyPolicyURL": "https://getadloop.com/privacy",
+        "termsOfServiceURL": "https://getadloop.com/terms",
+        "defaultPrompt": [
+          "How did my Google Ads campaigns do in the last 30 days?",
+          "Find search terms that wasted budget this month and suggest negative keywords.",
+          "Are my conversions tracked correctly between Google Ads and GA4?"
+        ],
+        "brandColor": "#3B82F6",
+        "composerIcon": "./assets/adloop-icon.svg",
+        "logo": "./assets/adloop-icon.png"
+      }
+    }
+  }
+}

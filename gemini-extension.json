@@ -1,0 +1,12 @@
+{
+  "name": "adloop",
+  "version": "1.0.0",
+  "description": "Google Ads, Reddit Ads and Google Analytics in your AI assistant, with a preview and your approval before every change.",
+  "contextFileName": "GEMINI.md",
+  "mcpServers": {
+    "adloop": {
+      "httpUrl": "https://mcp.getadloop.com/mcp",
+      "timeout": 120000
+    }
+  }
+}
