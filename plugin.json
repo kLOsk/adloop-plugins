@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "adloop",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Google Ads, Reddit Ads and Google Analytics in your AI assistant, with a preview and your approval before every change.",
   "author": {
     "name": "AdLoop",
@@ -23,7 +23,7 @@
     "com.openai": {
       "interface": {
         "displayName": "AdLoop Cloud",
-        "shortDescription": "Manage and analyze Google Ads, Reddit Ads and GA4",
+        "shortDescription": "Manage Google & Reddit Ads",
         "longDescription": "AdLoop Cloud is a campaign management and analytics tool for advertisers and agencies. It connects your Google Ads, Reddit Ads and Google Analytics 4 accounts, plus Search Console, Tag Manager and Merchant Center, to your AI assistant. Review campaign performance, find wasted spend in search terms, check whether conversions are tracked correctly, research keywords and plan budgets, and draft campaigns, ads and keywords. Every change starts as a preview: nothing is applied until you approve it, Google validates each change in a test run first, budgets and bid raises are capped, and new campaigns are created paused. Requires an AdLoop Cloud account with Google or Reddit connected.",
         "developerName": "AdLoop",
         "category": "Productivity",
