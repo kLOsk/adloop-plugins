@@ -1,4 +1,5 @@
 ---
+name: adloop-rules
 description: AdLoop Cloud orchestration and safety rules for Google Ads, Reddit Ads and GA4 (Google Analytics). Apply when using AdLoop MCP tools, analyzing ad or analytics performance, or before any AdLoop draft_* or confirm_and_apply call.
 globs:
 alwaysApply: false
