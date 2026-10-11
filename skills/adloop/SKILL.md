@@ -28,17 +28,27 @@ You have access to AdLoop MCP tools that connect Google Ads, Reddit Ads and Goog
 | Tool | When to Use | Key Parameters |
 |------|-------------|----------------|
 | `get_account_summaries` | First-time discovery — find which GA4 properties exist | (none — uses the connected Google account) |
-| `run_ga4_report` | Any analytics question — sessions, users, conversions, page performance | `dimensions`, `metrics`, `date_range_start`, `date_range_end`, `limit` |
+| `run_ga4_report` | Any analytics question: sessions, users, key events, page performance | `dimensions`, `metrics`, `date_range_start`, `date_range_end`, `limit`; optional `dimension_filter` / `metric_filter` (AND list of `{field, op, value}`), `order_by` (`[{field, desc}]`), `offset` (paging, see `next_offset`), `compare_start` + `compare_end` (period comparison) |
 | `run_realtime_report` | After code deploys — verify tracking fires correctly | `dimensions`, `metrics` |
 | `get_tracking_events` | Understanding what events are configured and their volume | `date_range_start`, `date_range_end` |
+| `list_key_events` | Which events count as key events (conversions), their counting method, and whether GA4 lets them be deleted | `property_id` (falls back to the GA4 property chosen in the AdLoop Cloud dashboard) |
+| `list_ga4_dimensions_and_metrics` | Exact dimension/metric API names for this property, including custom ones, before writing a `run_ga4_report` call | `search` (also matches deprecated names), `kind` (all/dimensions/metrics), `custom_only` |
+
+**`run_ga4_report` options:**
+- Do not guess field names. When unsure of a name, or when looking for a custom dimension such as `customEvent:plan`, call `list_ga4_dimensions_and_metrics` with a `search` first.
+- Request `keyEvents`, not `conversions`. GA4 renamed the metric; the old name is only an alias.
+- `dimension_filter` ops: `EXACT` (default), `BEGINS_WITH`, `ENDS_WITH`, `CONTAINS`, `FULL_REGEXP`, `PARTIAL_REGEXP`, or `IN_LIST` with `values`. Add `"not": true` to exclude, `"case_sensitive": true` to match case. Example: `[{"field": "sessionDefaultChannelGroup", "op": "EXACT", "value": "Paid Search"}]`.
+- `metric_filter` ops: `EQUAL`, `LESS_THAN`, `LESS_THAN_OR_EQUAL`, `GREATER_THAN`, `GREATER_THAN_OR_EQUAL` (or `=`, `<`, `<=`, `>`, `>=`), or `BETWEEN` with `[from, to]`. Metric filters apply after aggregation, like SQL `HAVING`.
+- Every `order_by` field must also be in `dimensions` or `metrics`.
+- With `compare_start`/`compare_end`, each row carries `dateRange`: `"current"` or `"comparison"`. Compare like with like (same length, same weekdays) and present the change per row.
 
 ### Google Ads Read Tools
 
 | Tool | When to Use | Key Parameters |
 |------|-------------|----------------|
 | `list_accounts` | First-time discovery — find which Ads accounts exist | (none — uses the connected Google account) |
-| `get_campaign_performance` | Campaign-level metrics — impressions, clicks, cost, conversions | `date_range_start`, `date_range_end` |
-| `get_ad_performance` | Ad copy analysis — which headlines/descriptions work | `date_range_start`, `date_range_end` |
+| `get_campaign_performance` | Campaign-level metrics: impressions, clicks, cost, conversions, plus Search impression share and the share lost to budget and to rank | `date_range_start`, `date_range_end` |
+| `get_ad_performance` | Ad copy analysis (which headlines/descriptions work) plus each ad's policy approval status, review status and policy topics | `date_range_start`, `date_range_end` |
 | `get_keyword_performance` | Keyword analysis — quality scores, competitive metrics | `date_range_start`, `date_range_end` |
 | `get_search_terms` | Find negative keyword opportunities and understand user intent | `date_range_start`, `date_range_end` |
 | `get_negative_keywords` | List direct campaign-level negative keywords (not inside SharedSets) | `campaign_id` (optional) |
@@ -50,6 +60,7 @@ You have access to AdLoop MCP tools that connect Google Ads, Reddit Ads and Goog
 | `get_pmax_assets` | Per-asset details for PMax — field type, serving status, content. Use with `get_detailed_asset_performance` for quality signals | `campaign_id` (optional) |
 | `get_detailed_asset_performance` | Top-performing asset combinations — which headline+description+image combos Google selects most | `campaign_id` (optional) |
 | `get_audience_performance` | Audience segment metrics — remarketing, in-market, affinity, demographics | `date_range_start`, `date_range_end`, `campaign_id` (optional) |
+| `get_change_history` | What changed in the account and who changed it: time, user email, client (UI, API, scripts, Editor, auto-applied recommendations), resource type, operation, changed fields, campaign/ad group. The first stop for "what changed before the drop?" (30 days of history) | `date_range_start`, `date_range_end`, `campaign_id` (optional), `resource_types` (optional), `limit` (optional, max 10000) |
 | `get_demographic_targeting` | List current demographic criteria (age/gender/parental status/income) on an ad group or campaign — returns each criterion's `remove_id` for use with `remove_entity` | exactly one of `ad_group_id` or `campaign_id` |
 | `suggest_brands` | Resolve one brand name to the brands Google recognizes — brand ID, name, state, URLs. The ID is what brand criteria target, so resolve here before building any brand list | `brand_prefix` (required), `selected_brand_ids` (optional, IDs already picked) |
 | `check_brand_names` | Triage a shortlist of brand names at once: matched vs. unknown, plus each brand's ID | `brand_names` (required, max 25 per call) |
@@ -63,13 +74,15 @@ You have access to AdLoop MCP tools that connect Google Ads, Reddit Ads and Goog
 **Return format notes:**
 - Ads read tools automatically compute `metrics.cost` and `metrics.cpa` from `metrics.cost_micros` — no manual division needed. `metrics.currency` contains the account's currency code (auto-detected).
 - `metrics.average_cpc_amount` is also pre-computed where available.
-- `get_ad_performance` returns full `headlines` and `descriptions` lists for RSAs.
+- `get_ad_performance` returns full `headlines` and `descriptions` lists for RSAs, plus `ad_group_ad.policy_summary.approval_status`, `review_status` and `policy_topics` (topic names only) per ad. Ads that are `DISAPPROVED` (cannot serve) or `APPROVED_LIMITED` (serving restricted) are listed in `policy_issues` with their spend and flagged in `insights[]`; compact mode adds `by_approval_status` counts.
+- `get_campaign_performance` returns `metrics.search_impression_share`, `metrics.search_budget_lost_impression_share` and `metrics.search_rank_lost_impression_share` as fractions (0.25 = 25%) with matching `*_pct` percentages. Google caps the reported values: 0.0999 means below 10% share, 0.9001 means above 90% lost. They are `null` for campaigns that do not serve on Search (Display, Video, PMax, ...) or had no impressions, which means "does not apply", not zero. `budget_limited_converters` and `insights[]` flag converting campaigns losing 20% or more of impressions to budget: those can absorb more budget, rank-lost share instead points at bids, ad relevance and quality.
+- `get_change_history` returns changes newest first with counts `by_resource_type`, `by_client`, `by_user` and `by_day`. Google Ads keeps 30 days of change history, so an older start date is moved forward (see `notes`). `insights[]` flag auto-applied recommendations and budget or bidding changes. `truncated: true` means the limit was hit; narrow the range or filters to see older changes.
 - `get_recommendations` returns `estimated_improvement` per recommendation (potential minus base metrics) and `insights[]` that flag budget-increase recommendations, whose projected gain comes from spending more.
 - PMax tools: `get_pmax_performance` returns `insights[]` flagging weak ad strength and zero-conversion asset groups. `segments.ad_network_type` includes MIXED — a Google catch-all for most PMax traffic. Full channel splits (Search vs YouTube vs Display vs Discover) are not available via the API.
 - `get_pmax_assets` returns `by_status` and `by_field_type` summaries. Note: per-asset performance labels (BEST/GOOD/LOW) are not available for PMax assets in the Google Ads API. Use `get_detailed_asset_performance` for quality signals via top combinations.
 - `get_audience_performance` works for campaigns with explicit audience targeting. PMax audience targeting is automatic and may not appear in this report. When the results include SEARCH campaigns, `insights[]` reminds you that custom segments cannot be attached to them (see the compatibility matrix below) — relay that constraint instead of proposing impossible pairings.
 - `get_demographic_targeting` returns an empty list when no demographics have been excluded or narrowed — that is the DEFAULT state (Google serves to all segments). Each criterion includes a composite `remove_id` (`adGroupId~criterionId` or `campaignId~criterionId`) that can be passed straight to `remove_entity`.
-- **Compact mode for audits**: `get_campaign_performance`, `get_keyword_performance`, `get_search_terms`, and `get_ad_performance` accept `compact=true`, returning account totals, breakdowns, the top-10 rows, and pre-computed offender lists (zero-conversion spenders, low-QS keywords, negative-keyword waste candidates, thin RSAs, single-ad ad groups) instead of every row; compact `get_ad_performance` keeps `final_urls` on its rows and adds `landing_pages` (every final URL across all ads with its ad count), so landing-page checks need no extra GAQL — roughly 90% smaller. Use it for account audits and overviews so raw tables don't flood the context; use the default full mode when you need a specific entity's exact rows before drafting a change. In harnesses with subagents, heavy multi-tool audits can additionally be delegated to a subagent that returns only the summary.
+- **Compact mode for audits**: `get_campaign_performance`, `get_keyword_performance`, `get_search_terms`, and `get_ad_performance` accept `compact=true`, returning account totals, breakdowns, the top-10 rows, and pre-computed offender lists (zero-conversion spenders, budget-limited converters, low-QS keywords, negative-keyword waste candidates, thin RSAs, single-ad ad groups, disapproved or limited ads) instead of every row; compact `get_ad_performance` keeps `final_urls` on its rows and adds `landing_pages` (every final URL across all ads with its ad count), so landing-page checks need no extra GAQL — roughly 90% smaller. Use it for account audits and overviews so raw tables don't flood the context; use the default full mode when you need a specific entity's exact rows before drafting a change. In harnesses with subagents, heavy multi-tool audits can additionally be delegated to a subagent that returns only the summary.
 
 ### Cross-Reference Tools (GA4 + Ads combined)
 
@@ -98,11 +111,14 @@ These tools call both APIs internally and return unified results with computed `
 |------|-------------|----------------|
 | `audit_event_coverage` | The GTM headline tool: three-way audit of codebase events ↔ live GTM tags ↔ GA4 actual fires, with a per-event status matrix and insights | `expected_events` (extracted from the codebase first), `gtm_account_id`, `gtm_container_id`, date range |
 | `list_gtm_accounts` / `list_gtm_containers` | First-time discovery — find GTM account and container IDs | (accounts: none; containers: `gtm_account_id`) |
-| `list_gtm_tags` / `get_gtm_tag` | Inventory tags in the live container / full detail for one tag | `gtm_account_id`, `gtm_container_id` (+ `tag_id`) |
-| `list_gtm_triggers` / `get_gtm_trigger` | Inventory triggers / full detail incl. filter conditions | `gtm_account_id`, `gtm_container_id` (+ `trigger_id`) |
-| `list_gtm_variables` | Inventory user-defined variables | `gtm_account_id`, `gtm_container_id` |
+| `list_gtm_tags` / `get_gtm_tag` | Inventory tags in the live container / full detail for one tag. With `workspace_id`, reads that workspace's unpublished state instead (a just-drafted tag shows up there, not in the live read) | `gtm_account_id`, `gtm_container_id`, `workspace_id` (+ `tag_id`) |
+| `list_gtm_triggers` / `get_gtm_trigger` | Inventory triggers / full detail incl. filter conditions. `workspace_id` reads a workspace like above | `gtm_account_id`, `gtm_container_id`, `workspace_id` (+ `trigger_id`) |
+| `list_gtm_variables` | Inventory user-defined and enabled built-in variables (live by default; `built_in_source` says where the built-ins came from) | `gtm_account_id`, `gtm_container_id`, `workspace_id` |
 | `list_gtm_workspaces` / `get_gtm_workspace_diff` | See open workspaces / unpublished changes pending in one | `gtm_account_id`, `gtm_container_id` (+ `workspace_id`) |
-| `list_gtm_versions` / `get_gtm_version` | Container publish history / full metadata of one version | `gtm_account_id`, `gtm_container_id` (+ `version_id`) |
+| `list_gtm_versions` / `get_gtm_version` | Container version history, newest first / name, notes and entity names of one version. The API returns no timestamps or author and does not mark which versions were published | `gtm_account_id`, `gtm_container_id` (+ `container_version_id`) |
+| `get_gtm_version_diff` | What a publish changed: added / removed / changed tags, triggers and variables with the changed fields (parameters and trigger conditions key by key), plus built-in variables enabled or disabled. Default compares live with the version created before it | `from_version_id`, `to_version_id` (both optional) |
+
+**GTM API quota:** Tag Manager allows 25 requests per 100 seconds per Google Cloud project. Live reads cost one call; a workspace read costs one call per entity kind; `get_gtm_version_diff` costs two or three. Don't loop over tags with `get_gtm_tag` when `list_gtm_tags` already returns them all.
 
 **GTM prerequisites:** the connected Google account needs at least Read access on the container. A Google connection made before Tag Manager access was granted must be renewed (reconnect Google under Settings → Google in the AdLoop Cloud dashboard at getadloop.com) — an `INSUFFICIENT_SCOPES` structured error means exactly that.
 
@@ -111,7 +127,9 @@ These tools call both APIs internally and return unified results with computed `
 | Tool | When to Use | Key Parameters |
 |------|-------------|----------------|
 | `list_gsc_sites` | First-time discovery — which GSC properties the connected account can access | (none) |
-| `run_gsc_report` | Organic search analytics — clicks, impressions, CTR, avg position by query/page/country/device/date | `site_url` (from `list_gsc_sites`), `dimensions`, date range (ISO or "28daysAgo"), `dimension_filter_groups`, `search_type` |
+| `run_gsc_report` | Organic search analytics: clicks, impressions, CTR, avg position by query/page/country/device/date/searchAppearance/hour | `site_url` (from `list_gsc_sites`), `dimensions`, date range (ISO or "28daysAgo"), `dimension_filter_groups`, `search_type`, `data_state`, `aggregation_type`, `start_row` |
+
+**GSC parameters:** `data_state="final"` (default) returns finalized data only; `"all"` adds the last days' fresh data, which can still change (the response `metadata` names the first incomplete date). The `hour` dimension covers roughly the last 10 days and switches `data_state` to `"hourly_all"` automatically. `aggregation_type` is `"auto"` (default), `"byPage"` or `"byProperty"`; `byProperty` cannot be combined with grouping or filtering by page. One request returns at most 25,000 rows: when a response carries `next_start_row`, pass it as `start_row` for the next page.
 
 **GSC prerequisites:** the connected Google account needs access to the property in Search Console. A Google connection made before Search Console access was granted must be renewed by reconnecting Google (`INSUFFICIENT_SCOPES` error tells the user how). Property formats: `https://example.com/` (URL-prefix) vs `sc-domain:example.com` (domain property) — use `list_gsc_sites` rather than guessing.
 
@@ -123,6 +141,7 @@ These tools call both APIs internally and return unified results with computed `
 
 - Run it on ad `final_urls`, mobile first — that's where most paid traffic lands. A Lighthouse run takes 10-30s; that's normal, don't retry.
 - Field (CrUX) data is real Chrome users over 28 days; lab data is simulated. When they disagree, trust field. Missing field data means low traffic, not a healthy page.
+- `field.scope` says what the field data covers. `"url"` is this page; `"origin"` means the page had too little traffic of its own and the numbers are the whole site's (origin-wide). Say so when reporting origin data, and don't attribute it to the page. Field data includes FCP and TTFB at p75 when CrUX has them.
 - Pairs with `landing_page_analysis`: pages with traffic but no conversions + a bad performance score = fix speed before touching ad copy.
 
 ### Merchant Center Read Tools (all read-only)
@@ -138,7 +157,7 @@ These tools call both APIs internally and return unified results with computed `
 
 ### Reddit Ads Read Tools
 
-Reddit is a second ad platform with its own connection (connected under Settings → Reddit Ads in the AdLoop Cloud dashboard at getadloop.com). Every Reddit tool takes `ad_account_id` (falls back to the Reddit ad account chosen in the AdLoop Cloud dashboard). The hierarchy is business → ad account → campaign → ad group → ad (post). There are no keywords-with-quality-scores and no match types: targeting is communities (subreddits), interests, keywords, geolocations, languages, gender, platforms. Money is returned in account currency (Reddit's microcurrency already divided).
+Reddit is a second ad platform with its own connection (connected under Settings → Reddit Ads in the AdLoop Cloud dashboard at getadloop.com). Every Reddit tool takes `ad_account_id` (falls back to the Reddit ad account chosen in the AdLoop Cloud dashboard). The hierarchy is business → ad account → campaign → ad group → ad (post). There are no keywords-with-quality-scores and no match types: targeting is communities (subreddits), interests, keywords, geolocations, languages, gender, platforms, devices, mobile carriers and feed layouts (`view_modes`). Money is returned in account currency (Reddit's microcurrency already divided).
 
 | Tool | When to Use | Key Parameters |
 |------|-------------|----------------|
@@ -150,9 +169,9 @@ Reddit is a second ad platform with its own connection (connected under Settings
 | `get_reddit_performance` | Any Reddit performance question — spend, clicks, CTR, CPC, conversions, CPA, ROAS with names joined and `insights[]` | `level` (account/campaign/ad_group/ad), `date_range_start`, `date_range_end`, `breakdown` (date/hour/country/region/community/keyword/interest/placement/gender/os_type), `compact` |
 | `run_reddit_report` | Metrics the curated tool omits (REACH, video metrics, per-event conversions) | `fields`, `breakdowns` (≤3), `filter`, date range |
 | `get_reddit_pixels` | Before any conversion-optimized work — pixels and when each event last fired; flags ad groups optimizing for an event the pixel never sent | `ad_account_id` |
-| `search_reddit_targeting` | Look up ids/names for ad-group targeting; `community_suggestions` returns Reddit's related-community picks for seed communities or a website | `kind` (communities/interests/geolocations/languages/keywords/community_suggestions), `query`, `country`, `website_url` |
+| `search_reddit_targeting` | Look up ids/names for ad-group targeting; `community_suggestions` returns Reddit's related-community picks for seed communities or a website | `kind` (communities/interests/geolocations/languages/keywords/community_suggestions/devices/carriers), `query`, `country` (geolocations, carriers), `website_url` |
 | `get_reddit_account_history` | "What changed?" before diagnosing a performance move — who changed which field, before/after | `date_range_start`, `date_range_end`, optional `entity_type` + `entity_ids` |
-| `estimate_reddit_ad_group` | Before `draft_reddit_ad_group`: targetable audience, delivery estimate, and Reddit's suggested bid range for the same targeting and budget (read-only) | `daily_budget`, `bid_type`, targeting lists, optional `bid_value` to sanity-check |
+| `estimate_reddit_ad_group` | Before `draft_reddit_ad_group`: targetable audience, delivery estimate, and Reddit's suggested bid range for the same targeting and budget (read-only) | `daily_budget`, `bid_type`, targeting lists incl. `devices` and `carriers`, optional `bid_value` to sanity-check |
 
 - **Status has two layers.** `configured_status` is what the advertiser set (ACTIVE/PAUSED/ARCHIVED); `effective_status` is what Reddit computes (`PENDING_APPROVAL`, `REJECTED`, `PENDING_BILLING_INFO`, `PENDING_ID_VERIFICATION`, `CAMPAIGN_PAUSED`, ...). An ACTIVE entity that is REJECTED or blocked by billing does not serve; report the effective status and its cause, not the configured one.
 - **Budgets live on ad groups** unless the campaign has `is_campaign_budget_optimization: true` (then on the campaign). `goal_type` DAILY_SPEND vs LIFETIME_SPEND cannot change after publishing.
@@ -214,6 +233,7 @@ Reddit is a second ad platform with its own connection (connected under Settings
 | `add_negative_keywords` | Propose negative keywords directly on a campaign (does NOT add) | `campaign_id`, keyword list, `match_type` |
 | `add_negative_locations` | Propose negative geo exclusions on a campaign (does NOT add) — exclude cities/regions while keeping broader positive targets | `campaign_id`, `geo_target_ids` (numeric geo target constant IDs) |
 | `draft_key_event` | Mark a GA4 event as a key event/conversion (does NOT apply) — closes the tracking loop after attribution_check finds an untracked conversion | `event_name`, `counting_method` (ONCE_PER_EVENT for purchases / ONCE_PER_SESSION for sign-ups), `property_id` (falls back to the GA4 property chosen in the AdLoop Cloud dashboard) |
+| `draft_delete_key_event` | Remove a GA4 key event (does NOT apply; DESTRUCTIVE). The event keeps firing but stops counting as a conversion, for future data only. Refused for key events GA4 marks as not deletable | `event_name` (as listed by `list_key_events`), `property_id` (falls back to the GA4 property chosen in the AdLoop Cloud dashboard) |
 | `propose_negative_keyword_list` | Draft a shared negative keyword list and attach it to a campaign (does NOT create) | `campaign_id`, `list_name`, keyword list, `match_type` |
 | `propose_brand_list` | Draft a brand list (SharedSet of type BRANDS) and optionally attach it. Only the Commercial KG MID can be written — resolve names first. | `list_name`, `brand_ids`, optional `campaign_ids`, optional `negative` (default True = exclusion) |
 | `add_to_brand_list` | Append brands to an EXISTING brand list | `shared_set_id`, `brand_ids` |
@@ -244,10 +264,10 @@ Same draft → preview → `confirm_and_apply` gate; the plan carries `platform:
 | `pause_reddit_entity` / `enable_reddit_entity` | Set `configured_status` PAUSED / ACTIVE on a campaign, ad group or ad | `entity_type` (campaign/ad_group/ad), `entity_id`; enabling a new ad triggers policy review |
 | `remove_reddit_entity` | ARCHIVE (irreversible — Reddit has no hard delete for entities that ran) | double confirmation; prefer pausing |
 | `update_reddit_campaign` | Name, run dates, `spend_cap`; budget/bid/`schedule` only on CBO campaigns (a campaign schedule replaces every ad group's) | `daily_budget` or `lifetime_budget` (+ `end_time`) checked against `max_daily_budget`; preview shows old → new |
-| `update_reddit_ad_group` | Budget, bid, run dates, weekly `schedule`, targeting incl. `locations` (placements: FEED, COMMENTS_PAGE) | `daily_budget` vs cap, `bid_value` vs `max_bid_increase_pct`; targeting lists REPLACE the keys you pass (pass full lists), other keys stay; keywords are brand-safety-checked and geos validated with Reddit at draft time |
+| `update_reddit_ad_group` | Budget, bid, run dates, weekly `schedule`, targeting incl. `locations` (placements: FEED, COMMENTS_PAGE), `devices`, `carriers`, `view_modes`, `excluded_interests` | `daily_budget` vs cap, `bid_value` vs `max_bid_increase_pct`; targeting lists REPLACE the keys you pass (pass full lists, `[]` clears), other keys stay; keywords are brand-safety-checked and geos validated with Reddit at draft time; carriers are checked against Reddit's carrier list and device targets validated in shape |
 | `update_reddit_ad` | Name, landing URL (`click_url`, verified reachable), comments on/off | Headline and body of a live post cannot change: for new copy use `draft_reddit_ad` and pause the old ad. TEXT (free-form) ads refuse a `click_url`: they open the post, the link lives in the body |
 | `draft_reddit_campaign` | Create a campaign (PAUSED) | `campaign_name`, `objective` (CLICKS, CONVERSIONS, IMPRESSIONS, LEAD_GENERATION, APP_INSTALLS, CATALOG_SALES, VIDEO_VIEWABLE_IMPRESSIONS), `funding_instrument_id` (from `list_reddit_funding_instruments`); `campaign_budget_optimization=true` needs budget + `bid_strategy` + `bid_type` + `conversion_pixel_id` |
-| `draft_reddit_ad_group` | Create an ad group (PAUSED) | `campaign_id`, `ad_group_name`, `conversion_pixel_id` (REQUIRED by Reddit; from `get_reddit_pixels`), at least one targeting list (geolocations/communities/interests/keywords), and for non-CBO campaigns `daily_budget` (or `lifetime_budget` + `end_time`), `bid_strategy` (BIDLESS, MANUAL_BIDDING, MAXIMIZE_VOLUME, TARGET_CPX), `bid_type` (CPC, CPM, CPV…); `optimization_goal` is the pixel event (PURCHASE, SIGN_UP, LEAD, PAGE_VISIT, …); optional `schedule`; `locations` = placements (FEED, COMMENTS_PAGE) |
+| `draft_reddit_ad_group` | Create an ad group (PAUSED) | `campaign_id`, `ad_group_name`, `conversion_pixel_id` (REQUIRED by Reddit; from `get_reddit_pixels`), at least one targeting list (geolocations/communities/interests/keywords), and for non-CBO campaigns `daily_budget` (or `lifetime_budget` + `end_time`), `bid_strategy` (BIDLESS, MANUAL_BIDDING, MAXIMIZE_VOLUME, TARGET_CPX), `bid_type` (CPC, CPM, CPV…); `optimization_goal` is the pixel event (PURCHASE, SIGN_UP, LEAD, PAGE_VISIT, …); optional `schedule`; `locations` = placements (FEED, COMMENTS_PAGE); optional `devices` (objects: `type` DESKTOP/MOBILE, `os` IOS/ANDROID, `min_version`/`max_version`, `label_map` {make: [models]}; APP_INSTALLS needs exactly one), `carriers` (ids), `view_modes` (ALL, CARD, CLASSIC, COMPACT, IMMERSIVE), `excluded_interests` (deprecated by Reddit) |
 | `draft_reddit_ad` | Create a post on the profile, then the ad (PAUSED) | `ad_group_id`, `profile_id` (from `list_reddit_funding_instruments`), `headline` (≤300 chars), `click_url` (verified reachable), `post_type` IMAGE (+ public `image_url`, CTA from Reddit's fixed labels) or TEXT, `allow_comments`; or `post_id` (t3_…) to promote an EXISTING post and keep its upvotes and comments (no post is created, copy args are ignored, TEXT posts take no `click_url`, media posts default it to the post's destination) |
 
 - **Choose the post type deliberately.** An IMAGE ad clicks through to `click_url` (a normal landing-page ad). A TEXT ("free-form") ad clicks through to the **post itself**: Reddit forbids a `click_url` on it, so the landing link must be written into `body` (the tool refuses otherwise) and the report shows post opens and comments, not site clicks. Use TEXT for conversation-style founder posts, IMAGE when you want landing-page traffic. Neither can be edited after creation except `allow_comments`; new copy means a new post and ad.
@@ -325,18 +345,20 @@ Most websites (especially in the EU) use a GDPR cookie consent banner. This has 
 3. If they mention conversions, CPA, or "is it worth it", call `analyze_campaign_conversions` instead — it gives Ads + GA4 data in one call with GDPR-aware cost-per-conversion
 4. If they mention specific keywords or search terms, also call `get_keyword_performance` or `get_search_terms`
 5. Present a summary with the key metrics: spend (`metrics.cost`), clicks, conversions, CPA (`metrics.cpa`), CTR
-6. Highlight anything concerning: zero conversions, high CPA, low quality scores, wasteful search terms
-7. Compare against best practices (see Marketing Best Practices section)
-8. If the account has active Google recommendations, mention that `get_recommendations` can surface Google's suggestions for improvement
+6. Highlight anything concerning: zero conversions, high CPA, low quality scores, wasteful search terms, converting campaigns that lose impression share to budget
+7. If performance moved (spend, clicks or conversions up or down sharply), call `get_change_history` for the days before the shift to see who changed budgets, bids, keywords or ads, including auto-applied recommendations. Also check `get_ad_performance` for `DISAPPROVED` or `APPROVED_LIMITED` ads: a disapproval silently stops ads from serving
+8. Compare against best practices (see Marketing Best Practices section)
+9. If the account has active Google recommendations, mention that `get_recommendations` can surface Google's suggestions for improvement
 
 ### When user asks about conversions or conversion drops
 
 1. Call `attribution_check` with relevant date range and `conversion_events` if the user mentions specific events (e.g. sign_up, purchase) — this does the Ads vs GA4 comparison in one call and auto-generates insights
 2. If the discrepancy needs page-level drill-down, call `landing_page_analysis` to see which pages get paid traffic but don't convert
 3. Call `get_search_terms` to see if search intent shifted
-4. **Before concluding tracking is broken:** Check the `insights` from `attribution_check` — it already factors in GDPR consent gaps. Only diagnose a tracking issue if the tool's insights suggest it.
-5. If the user's codebase is accessible (for example in Cursor or Claude Code), search for recent changes to the affected pages
-6. Present a unified diagnosis combining the cross-reference tool insights with code analysis
+4. Call `get_change_history` covering the days before the drop: budget cuts, bid strategy or target changes, paused keywords or ads, and auto-applied recommendations explain most sudden drops. Check `get_ad_performance` for newly `DISAPPROVED` or `APPROVED_LIMITED` ads in the affected campaigns
+5. **Before concluding tracking is broken:** Check the `insights` from `attribution_check` — it already factors in GDPR consent gaps. Only diagnose a tracking issue if the tool's insights suggest it.
+6. If the user's codebase is accessible (for example in Cursor or Claude Code), search for recent changes to the affected pages
+7. Present a unified diagnosis combining the cross-reference tool insights with code analysis
 
 ### When user wants to create an ad
 
@@ -436,7 +458,8 @@ Most websites (especially in the EU) use a GDPR cookie consent banner. This has 
 3. Call `validate_tracking` with the extracted event names — it compares codebase events against actual GA4 data and returns matched, missing, and unexpected events
 4. Review the `insights[]` from `validate_tracking` — missing events indicate code not deployed or behind untriggered conditions; unexpected events may come from tag managers
 5. If the user needs to add new tracking, use `generate_tracking_code` to produce the gtag snippet with recommended parameters
-6. If an event FIRES in GA4 but is not marked as a key event (conversion), propose `draft_key_event` — preview → confirm like every write. Remind the user it applies to future data only and Ads needs the GA4 link + conversion import to optimize on it
+6. If an event FIRES in GA4 but is not marked as a key event (conversion), call `list_key_events` first to see what is already a key event, then propose `draft_key_event`. It goes through preview → confirm like every write. Remind the user it applies to future data only and Ads needs the GA4 link + conversion import to optimize on it
+7. To retire a key event (a duplicate, or one that no longer means a conversion), propose `draft_delete_key_event`. Before applying, check whether Google Ads imports it as a conversion action: removing it starves that conversion action and Smart Bidding of new conversions
 
 ### When user asks to add negative keywords
 
@@ -471,7 +494,7 @@ Reddit's structure is campaign → ad group (budget, bid, pixel, targeting) → 
 
 1. `get_reddit_campaigns` to avoid duplicate names and to learn the account's currency; `list_reddit_funding_instruments` for a servable `funding_instrument_id` and the posting `profile_id`
 2. **Pixel first.** `get_reddit_pixels`: every ad group needs a `conversion_pixel_id`, and a CONVERSIONS objective is pointless if the optimization event never fired. If the account has no pixel, stop and tell the user to create one in Reddit Events Manager
-3. **Targeting.** Ask which countries (and languages, upper-case codes like `EN`) to target if not stated; find ids/names with `search_reddit_targeting` (`geolocations` with `country`, `communities` by query, `community_suggestions` for related subreddits, `interests`, `keywords`). Never draft an untargeted ad group; warn when a geo-targeted ad group has no language list
+3. **Targeting.** Ask which countries (and languages, upper-case codes like `EN`) to target if not stated; find ids/names with `search_reddit_targeting` (`geolocations` with `country`, `communities` by query, `community_suggestions` for related subreddits, `interests`, `keywords`). Never draft an untargeted ad group; warn when a geo-targeted ad group has no language list. Narrow by device or carrier only when the user asks for it (an iOS app, a carrier partnership): `devices` look like `{"type": "MOBILE", "os": "IOS", "min_version": "16"}`, with make/model labels from kind `devices`; carrier ids come from kind `carriers` (filter with `country`). Every extra dimension shrinks the audience, so re-run the estimate after adding one
 3a. **Estimate first.** `estimate_reddit_ad_group` with the same targeting and budget: if the targetable audience is tiny or the planned bid is under Reddit's suggested minimum, fix that before drafting
 4. `draft_reddit_campaign` (objective, funding instrument; leave the budget off unless the user wants campaign budget optimization) → approve → apply
 5. `draft_reddit_ad_group` with `daily_budget` ≤ `max_daily_budget`, `bid_strategy` (MAXIMIZE_VOLUME is the sane default; MANUAL_BIDDING/TARGET_CPX need `bid_value`), `bid_type` (CPC for traffic and conversions), `conversion_pixel_id`, `optimization_goal` matching the pixel event, targeting → approve → apply
