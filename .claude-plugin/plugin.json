@@ -1,7 +1,7 @@
 {
   "name": "adloop",
   "displayName": "AdLoop Cloud",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "Google Ads, Reddit Ads and Google Analytics in your AI assistant, with a preview and your approval before every change.",
   "author": {
     "name": "AdLoop",
