@@ -1,6 +1,6 @@
 {
   "name": "adloop",
-  "version": "1.0.31",
+  "version": "1.0.32",
   "description": "Google Ads MCP server for your AI assistant, with Reddit Ads and Google Analytics. A preview and your approval before every change.",
   "contextFileName": "GEMINI.md",
   "mcpServers": {
