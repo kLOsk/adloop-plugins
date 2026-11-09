@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "adloop",
-  "version": "1.0.32",
+  "version": "1.0.33",
   "description": "Google Ads MCP server for your AI assistant, with Reddit Ads and Google Analytics. A preview and your approval before every change.",
   "author": {
     "name": "AdLoop",
