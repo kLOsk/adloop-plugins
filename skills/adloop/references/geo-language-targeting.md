@@ -21,6 +21,10 @@ For cities/regions, use `run_gaql` with `geo_target_constant` resource or look u
 
 ### Common Language IDs (languageConstants)
 
+For the Keyword Planner tools (`discover_keywords`, `estimate_budget`) and for
+campaigns that still take language targeting. Search campaigns do not (see
+Marketing Best Practices).
+
 Verified against the `language_constant` resource. Google accepts a wrong
 language ID silently, so confirm anything not listed here with:
 `SELECT language_constant.id, language_constant.code, language_constant.name FROM language_constant`
