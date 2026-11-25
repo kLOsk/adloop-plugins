@@ -76,6 +76,8 @@ Every change, including test runs, is recorded in the change log in your dashboa
 
 The skill, the Cursor rule and `GEMINI.md` are generated from AdLoop's canonical rules file (`.cursor/rules/adloop.mdc` in [kLOsk/adloop](https://github.com/kLOsk/adloop)), rewritten for AdLoop Cloud. The generator and a manifest check live in that repository under `scripts/plugins/`, so this repository ships no code of its own: only manifests, the skill and assets.
 
+Claude's plugin directory follows the `claude` branch. It holds the Claude plugin alone and is built from `main` by `scripts/plugins/build_claude_branch.py` in that repository; don't commit to it by hand.
+
 ## Links
 
 - Website: [getadloop.com](https://getadloop.com)
