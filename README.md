@@ -4,7 +4,7 @@ Google Ads, Reddit Ads and Google Analytics in your AI assistant, with a preview
 
 This repository packages [AdLoop Cloud](https://getadloop.com) as a plugin for Claude, Cursor, Gemini CLI, and ChatGPT and Codex. Each plugin does two things:
 
-1. **Connects the AdLoop Cloud MCP server** at `https://mcp.getadloop.com/mcp`. It gives your assistant tools for Google Ads, Reddit Ads, Google Analytics 4, Search Console, Tag Manager and Merchant Center.
+1. **Connects the AdLoop Cloud MCP server** at `https://mcp.getadloop.com/mcp`. It gives your assistant tools for Google Ads, Reddit Ads, Microsoft Advertising, Google Analytics 4, Search Console, Tag Manager and Merchant Center.
 2. **Adds AdLoop's orchestration rules.** These rules tell the assistant which tool to use for which question and which checks to run before a change. They also cover how to read the data, for example why Ads clicks and GA4 sessions differ under cookie consent. The rules ship as a skill for Claude and Codex, as a rule for Cursor and as context for Gemini CLI.
 
 The plugins contain no executable code. No hooks, no local servers, nothing that runs on your machine. The only network connection they make is to `https://mcp.getadloop.com/mcp`.
@@ -12,7 +12,7 @@ The plugins contain no executable code. No hooks, no local servers, nothing that
 ## What you need
 
 - A free AdLoop Cloud account: sign up at [getadloop.com](https://getadloop.com).
-- Your Google account connected in the AdLoop Cloud dashboard. Connecting Reddit Ads is optional.
+- Your Google account connected in the AdLoop Cloud dashboard. Connecting Reddit Ads and Microsoft Advertising is optional.
 
 The first time your assistant uses AdLoop, it opens a browser window. Sign in to AdLoop Cloud there and approve the connection. You don't paste an API key anywhere.
 
