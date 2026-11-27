@@ -22,12 +22,7 @@ The first time your assistant uses AdLoop, it opens a browser window. Sign in to
 
 Once the plugin is listed, add **AdLoop Cloud** from Claude's plugin directory.
 
-To try it from source in Claude Code:
-
-```bash
-git clone https://github.com/kLOsk/adloop-plugins
-claude --plugin-dir ./adloop-plugins
-```
+To try it from source, clone this repository and start Claude Code with its `--plugin-dir` option pointing at the folder.
 
 ### Cursor
 
@@ -80,6 +75,8 @@ Every change, including test runs, is recorded in the change log in your dashboa
 ### Keeping the rules in sync
 
 The skill, the Cursor rule and `GEMINI.md` are generated from AdLoop's canonical rules file (`.cursor/rules/adloop.mdc` in [kLOsk/adloop](https://github.com/kLOsk/adloop)), rewritten for AdLoop Cloud. The generator and a manifest check live in that repository under `scripts/plugins/`, so this repository ships no code of its own: only manifests, the skill and assets.
+
+Claude's plugin directory follows the `claude` branch. It holds the Claude plugin alone and is built from `main` by `scripts/plugins/build_claude_branch.py` in that repository; don't commit to it by hand.
 
 ## Links
 
